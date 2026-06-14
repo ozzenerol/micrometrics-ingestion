@@ -1,0 +1,15 @@
+{
+  "port": "9080",
+  "spool": {
+    "directory": "/Users/C-dev/fm-spool",
+    "maxRows": 500
+  },
+  "database": {
+    "host": "localhost",
+    "port": 9042,
+    "username": "cassandra",
+    "password": "cassandra",
+    "keyspace": "iot",
+    "localDataCenter": "datacenter1"
+  }
+}
