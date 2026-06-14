@@ -40,19 +40,23 @@ public class IngestionServer {
 
     public void handleClient(Socket socket) {
         try (socket; var in = new DataInputStream(new BufferedInputStream(socket.getInputStream()))) {
+            // authenticate on the first frame only them trust the TCP connection after that
+            SensorFrameModel first = SensorFrameModel.decode(in);
+            var device = deviceCache.getByApiKey(first.apiKey());
+            if (device == null) {
+                device = deviceCache.getDeviceRepository().findByApiKey(first.apiKey());
+                if (device != null) {
+                    log.debug("Cache miss for api key, falling back to DB");
+                }
+            }
+            if (device == null || !device.active()) {
+                log.warn("Rejected connection from {}: invalid or inactive api key", socket.getInetAddress());
+                return;
+            }
+            spoolWriter.submit(first);
+
             while (!socket.isClosed()) {
                 SensorFrameModel frame = SensorFrameModel.decode(in);
-
-                var device = deviceCache.getByApiKey(frame.apiKey());
-                if (device == null) {
-                    device = deviceCache.getDeviceRepository().findByApiKey(frame.apiKey());
-                }
-
-                if (device == null || !device.active()) {
-                    log.warn("Rejected frame from {}: invalid or inactive api key", socket.getInetAddress());
-                    return;
-                }
-
                 log.debug("Device {} metric {} = {}", frame.deviceId(), frame.metricType(), frame.value());
                 spoolWriter.submit(frame);
             }

@@ -14,29 +14,29 @@ public class DeviceCache {
 
     @Getter
     private final DeviceRepository deviceRepository;
-    private final Map<String, Device> deviceCache = new ConcurrentHashMap<>();
+    private final Map<String, Device> cache = new ConcurrentHashMap<>();
 
     public DeviceCache(DeviceRepository deviceRepository) {
         this.deviceRepository = deviceRepository;
     }
 
     public void start() {
-        log.info("Starting device cache sync every 30s");
-        try ( var scheduler = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());) {
-            scheduler.scheduleAtFixedRate(this::sync, 30, 30, TimeUnit.SECONDS);
-        }
+        sync(); // populate before accepting connections
+        log.info("Starting device cache refresh every 30s");
+        var scheduler = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
+        scheduler.scheduleAtFixedRate(this::sync, 30, 30, TimeUnit.SECONDS);
     }
 
     private void sync() {
         List<Device> devices = deviceRepository.findAllDevices();
-        var updated = new ConcurrentHashMap<String, Device>();
+        var updated = new ConcurrentHashMap<String, Device>(devices.size() * 2);
         devices.forEach(device -> updated.put(device.apiKey(), device));
-        deviceCache.clear();
-        deviceCache.putAll(updated);
-        log.info("Device cache synced, {} devices loaded", deviceCache.size());
+        cache.clear();
+        cache.putAll(updated);
+        log.info("Device cache synced, {} devices loaded", cache.size());
     }
 
     public Device getByApiKey(String apiKey) {
-        return deviceCache.get(apiKey);
+        return cache.get(apiKey);
     }
 }
